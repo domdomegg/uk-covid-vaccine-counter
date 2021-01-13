@@ -10,9 +10,15 @@
             background-color: #F3E2EB;
             color: #231942;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+            font-size: 125%;
         }
 
         #main-container {
+            max-width: 1080px;
+            margin: 0 auto;
+        }
+
+        #main-container > div {
             margin: 10%;
         }
 
@@ -55,8 +61,15 @@
             display: none;
         }
 
+        /* Large screens */
+        @media only screen and (min-width: 1400px) {
+            body {
+                font-size: 150%;
+            }
+        }
+
         /* Mobile */
-        @media only screen and (max-width: 570px) {
+        @media only screen and (max-width: 700px) {
             .stat {
                 width: auto;
                 display: block;
@@ -73,17 +86,19 @@
 
 <body>
     <div id="main-container">
-        <h1>UK COVID-19 <br/>Vaccine Counter</h1>
-        <div id="error" style="display: none"></div>
-        <div id="stats">
-            <div class="stat">
-                <h2 id="firstDoses">Loading...</h2>
-                <p>first doses</p>
-            </div><div class="stat">
-                <h2 id="secondDoses">Loading...</h2>
-                <p>second doses</p>
+        <div>
+            <h1>UK COVID-19 <br/>Vaccine Counter</h1>
+            <div id="error" style="display: none"></div>
+            <div id="stats">
+                <div class="stat">
+                    <h2 id="firstDoses">Loading...</h2>
+                    <p>first doses</p>
+                </div><div class="stat">
+                    <h2 id="secondDoses">Loading...</h2>
+                    <p>second doses</p>
+                </div>
+                <p id="source">These are estimates based on data from <a href="https://coronavirus.data.gov.uk/">coronavirus.data.gov.uk</a>, assuming constant rate between 9am-5pm</p>
             </div>
-            <p id="source">These are estimates based on data from <a href="https://coronavirus.data.gov.uk/">coronavirus.data.gov.uk</a>, assuming constant rate between 9am-5pm</p>
         </div>
     </div>
 
