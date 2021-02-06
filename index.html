@@ -103,25 +103,53 @@
     </div>
 
     <script>
+        const vaccinatingSecondsPerDay = 28800; // 8 hours: 9am-5pm
+
+        /**
+         * @param num {number}
+         * @returns {string}
+         */
+         const fmt = (num) => num.toFixed(0).replace(/\B(?=(?:\d{3})+(?!\d))/g, ',');
+
+        /**
+         * @param days {number}
+         * @returns {string}
+         */
+        const daysAgo = (days) => new Date(new Date().getTime() - 86400000 * days).toISOString().slice(0, 10);
+
+        /**
+         * @param value {number}
+         * @param min {number}
+         * @param max {number}
+         * @returns {number}
+         */
+        const bound = (value, min, max) => value < min ? min : (value > max ? max : value);
+        
         /**
          * @param key {"firstDoses" | "secondDoses"}
-         * @param start {{ date: string, firstDoses: number, secondDoses: number }}
-         * @param end {{ date: string, firstDoses: number, secondDoses: number }}
+         * @param data {{ date: string, firstDoses: number, secondDoses: number, firstDosesC: number, secondDosesC: number }[]}
+         * @returns {number} The interval updating the stat
          */
-        const predict = (key, start, end) => {
-            // Determine the rate per second
-            const days = Math.round((new Date(end.date).getTime() - new Date(start.date).getTime()) / 86400000);
-            const vaccinatingSecondsPerDay = 28800; // 8 hours: 9am-5pm
-            const rate = (end[key] - start[key]) / (days * vaccinatingSecondsPerDay);
+        const predict = (key, data) => {
+            /** @type {{ [date: string]: string }} */
+            const dayDoses = {};
+            data.forEach(d => dayDoses[d.date] = d[key]);
 
-            const startOfToday = new Date(new Date().toISOString().slice(0, 10)); // midnight
-            const daysSinceLastStat = Math.round((startOfToday.getTime() - new Date(end.date).getTime()) / 86400000) - 1; // days of vaccination, as stats are end of
+            if (!(daysAgo(1) in dayDoses) && !(daysAgo(2) in dayDoses && daysAgo(8) in dayDoses && daysAgo(9) in dayDoses)) return basicPredict(key, data);
+            if (!(daysAgo(7) in dayDoses && daysAgo(8) in dayDoses)) return basicPredict(key, data);
+            if (!(daysAgo(2) in dayDoses)) return basicPredict(key, data);
+
+            dayDoses[daysAgo(1)] = dayDoses[daysAgo(1)] != undefined ? dayDoses[daysAgo(1)] : dayDoses[daysAgo(2)] * bound(dayDoses[daysAgo(8)] / dayDoses[daysAgo(9)], 0.5, 1.1);
+            dayDoses[daysAgo(0)] = dayDoses[daysAgo(1)] * bound(dayDoses[daysAgo(7)] / dayDoses[daysAgo(8)], 0.5, 1.1);
             
-            const vaccinesAtStartOfToday = end[key] + daysSinceLastStat * rate * vaccinatingSecondsPerDay;
+            const rate = dayDoses[daysAgo(0)] / vaccinatingSecondsPerDay;
+            
+            const vaccinesAtStartOfToday = data.find(d => d.date == daysAgo(2))[key + 'C'] + dayDoses[daysAgo(1)];
+            const startOfToday = new Date(new Date().toISOString().slice(0, 10)); // midnight
             const startOfVaccinationTodayMs = startOfToday.getTime() + 32400000 // 9am;
             const elem = document.getElementById(key);
 
-            setInterval(() => {
+            return setInterval(() => {
                 const now = new Date().getTime()
                 if (startOfVaccinationTodayMs > now) {
                     elem.textContent = fmt(vaccinesAtStartOfToday);
@@ -134,20 +162,48 @@
         }
 
         /**
-         * @param num {number}
-         * @returns {string}
+         * @param key {"firstDoses" | "secondDoses"}
+         * @param data {{ date: string, firstDoses: number, secondDoses: number, firstDosesC: number, secondDosesC: number }[]}
+         * @returns {number} The interval updating the stat
          */
-        const fmt = (num) => num.toFixed(0).replace(/\B(?=(?:\d{3})+(?!\d))/g, ',');
+        const basicPredict = (key, data) => {
+            const start = data[1];
+            const end = data[0];
 
-        const lastWeek = new Date(new Date().getTime() - 604800000).toISOString().slice(0, 10);
-        fetch('https://coronavirus.data.gov.uk/api/v1/data?filters=date%3E=' + lastWeek + ';areaType=overview&structure=%7B%22date%22:%22date%22,%22firstDoses%22:%22cumPeopleVaccinatedFirstDoseByPublishDate%22,%22secondDoses%22:%22cumPeopleVaccinatedSecondDoseByPublishDate%22%7D&format=json')
+            // Determine the rate per second
+            const days = Math.round((new Date(end.date).getTime() - new Date(start.date).getTime()) / 86400000);
+            const rate = (end[key + 'C'] - start[key + 'C']) / (days * vaccinatingSecondsPerDay);
+
+            const startOfToday = new Date(new Date().toISOString().slice(0, 10)); // midnight
+            const daysSinceLastStat = Math.round((startOfToday.getTime() - new Date(end.date).getTime()) / 86400000) - 1; // days of vaccination, as stats are end of
+            
+            const vaccinesAtStartOfToday = end[key + 'C'] + daysSinceLastStat * rate * vaccinatingSecondsPerDay;
+            const startOfVaccinationTodayMs = startOfToday.getTime() + 32400000 // 9am;
+            const elem = document.getElementById(key);
+
+            return setInterval(() => {
+                const now = new Date().getTime()
+                if (startOfVaccinationTodayMs > now) {
+                    elem.textContent = fmt(vaccinesAtStartOfToday);
+                } else if (now > startOfVaccinationTodayMs + vaccinatingSecondsPerDay * 1000) {
+                    elem.textContent = fmt(vaccinesAtStartOfToday + rate * vaccinatingSecondsPerDay);
+                } else {
+                    elem.textContent = fmt(vaccinesAtStartOfToday + rate * (new Date().getTime() - startOfVaccinationTodayMs) / 1000);
+                }
+            }, 50);
+        }
+
+        fetch('https://coronavirus.data.gov.uk/api/v1/data?filters=date%3E=' + daysAgo(9) + ';areaType=overview&structure=%7B%22date%22:%22date%22,%22firstDoses%22:%22newPeopleVaccinatedFirstDoseByPublishDate%22,%22secondDoses%22:%22newPeopleVaccinatedSecondDoseByPublishDate%22,%22firstDosesC%22:%22cumPeopleVaccinatedFirstDoseByPublishDate%22,%22secondDosesC%22:%22cumPeopleVaccinatedSecondDoseByPublishDate%22%7D&format=json')
             .then(res => res.json())
             .catch(err => { throw new Error('Could not get the latest data. Please try again later.') })
             .then(body => {
                 if (body.data.length < 2) throw new Error('Not enough data available to make predictions at the moment.');
 
-                predict('firstDoses', body.data[1], body.data[0]);
-                predict('secondDoses', body.data[1], body.data[0]);
+                predict('firstDoses', body.data);
+                predict('secondDoses', body.data);
+
+                // Reload after an hour to ensure our stats are up to date
+                setTimeout(() => location.reload(), 3600000);
             })
             .catch(err => {
                 document.getElementById('stats').style.display = 'none';
