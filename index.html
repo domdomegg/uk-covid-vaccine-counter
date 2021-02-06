@@ -124,14 +124,20 @@
             setInterval(() => {
                 const now = new Date().getTime()
                 if (startOfVaccinationTodayMs > now) {
-                    elem.textContent = vaccinesAtStartOfToday.toFixed(0);
+                    elem.textContent = fmt(vaccinesAtStartOfToday);
                 } else if (now > startOfVaccinationTodayMs + vaccinatingSecondsPerDay * 1000) {
-                    elem.textContent = (vaccinesAtStartOfToday + rate * vaccinatingSecondsPerDay).toFixed(0);
+                    elem.textContent = fmt(vaccinesAtStartOfToday + rate * vaccinatingSecondsPerDay);
                 } else {
-                    elem.textContent = (vaccinesAtStartOfToday + rate * (new Date().getTime() - startOfVaccinationTodayMs) / 1000).toFixed(0);
+                    elem.textContent = fmt(vaccinesAtStartOfToday + rate * (new Date().getTime() - startOfVaccinationTodayMs) / 1000);
                 }
-            }, 100);
+            }, 50);
         }
+
+        /**
+         * @param num {number}
+         * @returns {string}
+         */
+        const fmt = (num) => num.toFixed(0).replace(/\B(?=(?:\d{3})+(?!\d))/g, ',');
 
         const lastWeek = new Date(new Date().getTime() - 604800000).toISOString().slice(0, 10);
         fetch('https://coronavirus.data.gov.uk/api/v1/data?filters=date%3E=' + lastWeek + ';areaType=overview&structure=%7B%22date%22:%22date%22,%22firstDoses%22:%22cumPeopleVaccinatedFirstDoseByPublishDate%22,%22secondDoses%22:%22cumPeopleVaccinatedSecondDoseByPublishDate%22%7D&format=json')
