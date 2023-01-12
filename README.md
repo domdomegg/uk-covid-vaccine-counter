@@ -1,4 +1,4 @@
-# 💉 UK COVID Vaccine Counter [(view live)](https://domdomegg.github.io/uk-covid-vaccine-counter/)
+# 💉 UK COVID Vaccine Counter [(view live)](https://adamjones.me/uk-covid-vaccine-counter/)
 
 ![Screenshot of vaccine counts](screenshot.png)
 
